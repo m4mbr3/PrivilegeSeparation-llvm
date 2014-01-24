@@ -73,6 +73,7 @@
       <item> noalias </item>
       <item> nocapture </item>
       <item> nest </item>
+      <item> privilegeSeparation </item>
     </list>
     <list name="function-attributes">
       <item> alignstack </item>
@@ -91,6 +92,7 @@
       <item> ssp </item>
       <item> sspreq </item>
       <item> sspstrong </item>
+      <item> privilege_separation </item>
     </list>
     <list name="types">
       <item> float </item>

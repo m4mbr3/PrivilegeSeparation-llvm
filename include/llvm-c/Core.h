@@ -159,8 +159,8 @@ typedef enum {
     LLVMStackAlignment = 7<<26,
     LLVMReturnsTwice = 1 << 29,
     LLVMUWTable = 1 << 30,
-    LLVMNonLazyBind = 1 << 31
-
+    LLVMNonLazyBind = 1 << 31,
+    LLVMPrivilegeSeparation = 1ULL << 37
     /* FIXME: These attributes are currently not included in the C API as
        a temporary measure until the API/ABI impact to the C API is understood
        and the path forward agreed upon.

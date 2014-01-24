@@ -123,11 +123,11 @@ namespace {
 
     void error(const std::string& msg);
 
-    
+
     formatted_raw_ostream& nl(formatted_raw_ostream &Out, int delta = 0);
     inline void in() { indent_level++; }
     inline void out() { if (indent_level >0) indent_level--; }
-    
+
   private:
     void printLinkageType(GlobalValue::LinkageTypes LT);
     void printVisibilityType(GlobalValue::VisibilityTypes VisTypes);
@@ -415,10 +415,10 @@ std::string CppWriter::getCppName(Type* Ty) {
   if (StructType *STy = dyn_cast<StructType>(Ty))
     if (STy->hasName())
       name = STy->getName();
-  
+
   if (name.empty())
     name = utostr(uniqueNum++);
-  
+
   name = std::string(prefix) + name;
   sanitize(name);
 
@@ -523,6 +523,7 @@ void CppWriter::printAttributes(const AttributeSet &PAL,
       HANDLE_ATTR(UWTable);
       HANDLE_ATTR(NonLazyBind);
       HANDLE_ATTR(MinSize);
+      HANDLE_ATTR(PrivilegeSeparation);
 #undef HANDLE_ATTR
 
       if (attrs.contains(Attribute::StackAlignment)) {
@@ -818,7 +819,7 @@ void CppWriter::printConstant(const Constant *CV) {
         nl(Out);
       }
       Out << "Constant* " << constName;
-      
+
       if (isa<ArrayType>(CDS->getType()))
         Out << " = ConstantArray::get(";
       else
@@ -984,7 +985,7 @@ void CppWriter::printVariableUses(const GlobalVariable *GV) {
     } else if (const GlobalVariable* gv = dyn_cast<GlobalVariable>(Init)) {
       nl(Out) << "// Global Variable Declarations"; nl(Out);
       printVariableHead(gv);
-      
+
       nl(Out) << "// Global Variable Definitions"; nl(Out);
       printVariableBody(gv);
     } else  {

@@ -943,6 +943,7 @@ bool LLParser::ParseFnAttributeValuePairs(AttrBuilder &B,
     case lltok::kw_sanitize_thread:   B.addAttribute(Attribute::SanitizeThread); break;
     case lltok::kw_sanitize_memory:   B.addAttribute(Attribute::SanitizeMemory); break;
     case lltok::kw_uwtable:           B.addAttribute(Attribute::UWTable); break;
+    case lltok::kw_privilege_separation: B.addAttribute(Attribute::PrivilegeSeparation); break;
 
     // Error handling.
     case lltok::kw_inreg:
@@ -1177,6 +1178,7 @@ bool LLParser::ParseOptionalParamAttrs(AttrBuilder &B) {
     case lltok::kw_signext:         B.addAttribute(Attribute::SExt); break;
     case lltok::kw_sret:            B.addAttribute(Attribute::StructRet); break;
     case lltok::kw_zeroext:         B.addAttribute(Attribute::ZExt); break;
+    //case lltok::kw_privilege_separation: B.addAttribute(Attribute::PrivilegeSeparation); break;
 
     case lltok::kw_alignstack:
     case lltok::kw_alwaysinline:
@@ -1265,6 +1267,7 @@ bool LLParser::ParseOptionalReturnAttrs(AttrBuilder &B) {
       HaveError |= Error(Lex.getLoc(), "invalid use of function-only attribute");
       break;
 
+    //case lltok::kw_privilege_separation:
     case lltok::kw_readnone:
     case lltok::kw_readonly:
       HaveError |= Error(Lex.getLoc(), "invalid use of attribute on return type");
