@@ -109,7 +109,6 @@ public:
     SanitizeMemory,        ///< MemorySanitizer is on.
     UWTable,               ///< Function must be in a unwind table
     ZExt,                  ///< Zero extended before/after call
-    PrivilegeSeparation,   ///< Privilege Separation value for function
 
     EndAttrKinds           ///< Sentinal value useful for loops
    };

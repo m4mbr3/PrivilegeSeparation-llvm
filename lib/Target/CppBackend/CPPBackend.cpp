@@ -523,7 +523,6 @@ void CppWriter::printAttributes(const AttributeSet &PAL,
       HANDLE_ATTR(UWTable);
       HANDLE_ATTR(NonLazyBind);
       HANDLE_ATTR(MinSize);
-      HANDLE_ATTR(PrivilegeSeparation);
 #undef HANDLE_ATTR
 
       if (attrs.contains(Attribute::StackAlignment)) {

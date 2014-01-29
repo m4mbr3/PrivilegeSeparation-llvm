@@ -607,8 +607,6 @@ static Attribute::AttrKind GetAttrFromCode(uint64_t Code) {
     return Attribute::UWTable;
   case bitc::ATTR_KIND_Z_EXT:
     return Attribute::ZExt;
-  case bitc::ATTR_KIND_PRIVILEGE_SEPARATION:
-    return Attribute::PrivilegeSeparation;
   }
 }
 

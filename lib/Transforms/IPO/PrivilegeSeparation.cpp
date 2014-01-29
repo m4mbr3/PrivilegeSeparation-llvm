@@ -17,7 +17,7 @@ class PrivilegeSeparation : public FunctionPass {
         virtual bool runOnFunction(Function &F) {
             AttributeSet cuAttrSet = F.getAttributes();
             std::cout << cuAttrSet.getAsString(AttributeSet::FunctionIndex) << std::endl;
-            if (cuAttrSet.hasAttribute(AttributeSet::FunctionIndex, Attribute::PrivilegeSeparation)) {
+            if (cuAttrSet.hasAttribute(AttributeSet::FunctionIndex, "privilege-separation")) {
                 //++PrivilegeSeparation;
                 //errs() << PrivilegeSeparation;
                 //errs().write_escaped(F.getName()) << '\n';
