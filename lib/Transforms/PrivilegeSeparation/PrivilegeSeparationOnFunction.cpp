@@ -16,15 +16,14 @@ class PrivilegeSeparation : public FunctionPass {
         PrivilegeSeparation() : FunctionPass(ID) {}
         virtual bool runOnFunction(Function &F) {
             AttributeSet cuAttrSet = F.getAttributes();
-            std::cout << cuAttrSet.getAsString(AttributeSet::FunctionIndex) << std::endl;
             if (cuAttrSet.hasAttribute(AttributeSet::FunctionIndex, "privilege-separation")) {
-                //++PrivilegeSeparation;
-                //errs() << PrivilegeSeparation;
-                //errs().write_escaped(F.getName()) << '\n';
-                std::cout << "Found" << std::endl;
+                Attribute att = cuAttrSet.getAttribute(AttributeSet::FunctionIndex, "privilege-separation");
+                std::cout << "Found and the value is ";
+                std::cout << att.getValueAsString().str();
+                std::cout << " the size of this function is ";
+                std::cout << F.size() << std::endl;
                 return true;
             }
-            std::cout << "Not Found" << std::endl;
             return false;
         }
     };
