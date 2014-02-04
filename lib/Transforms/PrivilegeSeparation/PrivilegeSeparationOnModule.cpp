@@ -9,6 +9,7 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/PrivilegeSeparation.h"
 using namespace llvm;
 
 namespace {
@@ -18,54 +19,67 @@ class PrivilegeSeparationOnModule : public ModulePass {
         static char ID;
         PrivilegeSeparationOnModule() : ModulePass(ID) {}
         virtual bool runOnModule(Module &M) {
-            std::vector<Function*> *my_list = new std::vector<Function*>();
-            std::vector<Function*> *to_delete = new std::vector<Function*>();
+            std::vector<Function*>* my_list[NUM_OF_LEVELS];
+            std::vector<Function*>* to_delete[NUM_OF_LEVELS];
+            for (unsigned int i = 0; i<NUM_OF_LEVELS; ++i) {
+                my_list[i] = NULL;
+                to_delete[i] = NULL;
+            }
             Module::FunctionListType &funlist = M.getFunctionList();
             Module::iterator funIterCurr = funlist.begin();
             Module::iterator funIterEnd = funlist.end();
-            unsigned int i = 0;
             for( ; funIterCurr != funIterEnd; ++funIterCurr) {
                 Function &fun = *funIterCurr;
-                //uint32_t ICount = getInstructionCount(fun);
-                //std::cout << "Function: " << fun.getName().str() << " and the instruction count: " << ICount << std::endl;
                 AttributeSet cuAttrSet = fun.getAttributes();
                 if (cuAttrSet.hasAttribute(AttributeSet::FunctionIndex, "privilege-separation")) {
                     Attribute att = cuAttrSet.getAttribute(AttributeSet::FunctionIndex, "privilege-separation");
-                    //std::cout << "Found and the value is ";
-                    //std::cout << att.getValueAsString().str();
-                    //std::cout << std::endl;
+                    std::string value_str = att.getValueAsString().str();
+                    int value_int = atoi(value_str.c_str());
                     ValueToValueMapTy VMap;
                     Function *fun2 = CloneFunction(&fun, VMap, false);
-                    my_list->push_back(fun2);
-                    to_delete->push_back(&fun);
-/*                  for (llvm::Function::iterator I = fun.begin(),
-                                                        E = fun.end();
-                                                        I != E;
-                                                        ++I) {
-                        BasicBlock &B = *I;
-                        //B.replaceAllUsesWith(UndefValue::get((Type*) B.getType()));
-                        B.dropAllReferences();
-                        B.eraseFromParent();
-                    }*/
-                    i++;
+                    if (my_list[value_int] == NULL)
+                        my_list[value_int] = new std::vector<Function*>();
+                    my_list[value_int]->push_back(fun2);
+                    if (to_delete[value_int] == NULL)
+                        to_delete[value_int] = new std::vector<Function*>();
+                    to_delete[value_int]->push_back(&fun);
                 }
             }
-            for (unsigned int j=0; j < to_delete->size(); j++) {
-                    to_delete->at(j)->deleteBody();
-                    to_delete->at(j)->replaceAllUsesWith(my_list->at(j));
-                    to_delete->at(j)->dropAllReferences();
-                    to_delete->at(j)->eraseFromParent();
+            //Remove of the functions from the module and clone them into other structure
+            for (unsigned int l = 0; l < NUM_OF_LEVELS; ++l) {
+                if (to_delete[l] != NULL) {
+                    for (unsigned int j = 0; j < to_delete[l]->size(); ++j) {
+                            if (to_delete[l] != NULL) {
+                                to_delete[l]->at(j)->deleteBody();
+                                to_delete[l]->at(j)->replaceAllUsesWith(my_list[l]->at(j));
+                                to_delete[l]->at(j)->dropAllReferences();
+                                to_delete[l]->at(j)->eraseFromParent();
+                            }
+                    }
+                }
             }
-            for (unsigned int j=0; j<i; j++) {
-                M.getFunctionList().push_back(my_list->at(i-j-1));
+            //Re-insert functions into the module
+            for (unsigned int i = 0; i < NUM_OF_LEVELS; ++i) {
+                if (my_list[i] != NULL) {
+                    for (unsigned int j = 0; j< my_list[i]->size(); ++j) {
+                        M.getFunctionList().push_back(my_list[i]->at(j));
+                    }
+                }
             }
-            delete my_list;
-            delete to_delete;
+            //Loop to delete all the created elements
+            for (unsigned int i = 0; i< NUM_OF_LEVELS; ++i) {
+                if (my_list[i] != NULL)
+                    delete my_list[i];
+                if (to_delete[i] != NULL)
+                    delete to_delete[i];
+            }
             return true;
         }
+
+
+
         uint32_t getInstructionCount (Function &Fun) {
             uint32_t ICount = 0;
-
             // A llvm::Function is just a list of llvm::BasicBlock. In order to get
             // instruction count we can visit all llvm::BasicBlocks ...
             for(llvm::Function::const_iterator I = Fun.begin(),
@@ -75,7 +89,6 @@ class PrivilegeSeparationOnModule : public ModulePass {
               // ... and sum the llvm::BasicBlock size -- A llvm::BasicBlock size is just
               // a list of instructions!
               ICount += I->size();
-
             return ICount;
         }
     };
