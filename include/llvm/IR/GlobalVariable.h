@@ -24,7 +24,7 @@
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/OperandTraits.h"
-
+#include "llvm/Transforms/PrivilegeSeparation.h"
 namespace llvm {
 
 class Module;
@@ -48,7 +48,6 @@ class GlobalVariable : public GlobalValue, public ilist_node<GlobalVariable> {
                                                // can change from its initial
                                                // value before global
                                                // initializers are run?
-
 public:
   // allocate space for exactly one operand
   void *operator new(size_t s) {

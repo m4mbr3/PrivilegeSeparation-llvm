@@ -1813,7 +1813,7 @@ error_code BitcodeReader::ParseModule(bool Resume) {
       break;
     }
     // GLOBALVAR: [pointer type, isconst, initid,
-    //             linkage, alignment, section, visibility, threadlocal,
+    //             linkage, alignment, section, privilegeSeparation, visibility, threadlocal,
     //             unnamed_addr, dllstorageclass]
     case bitc::MODULE_CODE_GLOBALVAR: {
       if (Record.size() < 6)
@@ -1835,21 +1835,22 @@ error_code BitcodeReader::ParseModule(bool Resume) {
           return Error(InvalidID);
         Section = SectionTable[Record[5]-1];
       }
+      unsigned int privilegeSeparation = Record[6];
       GlobalValue::VisibilityTypes Visibility = GlobalValue::DefaultVisibility;
-      if (Record.size() > 6)
-        Visibility = GetDecodedVisibility(Record[6]);
+      if (Record.size() > 7)
+        Visibility = GetDecodedVisibility(Record[7]);
 
       GlobalVariable::ThreadLocalMode TLM = GlobalVariable::NotThreadLocal;
-      if (Record.size() > 7)
-        TLM = GetDecodedThreadLocalMode(Record[7]);
+      if (Record.size() > 8)
+        TLM = GetDecodedThreadLocalMode(Record[8]);
 
       bool UnnamedAddr = false;
-      if (Record.size() > 8)
-        UnnamedAddr = Record[8];
+      if (Record.size() > 9)
+        UnnamedAddr = Record[9];
 
       bool ExternallyInitialized = false;
-      if (Record.size() > 9)
-        ExternallyInitialized = Record[9];
+      if (Record.size() > 10)
+        ExternallyInitialized = Record[10];
 
       GlobalVariable *NewGV =
         new GlobalVariable(*TheModule, Ty, isConstant, Linkage, 0, "", 0,
@@ -1859,9 +1860,9 @@ error_code BitcodeReader::ParseModule(bool Resume) {
         NewGV->setSection(Section);
       NewGV->setVisibility(Visibility);
       NewGV->setUnnamedAddr(UnnamedAddr);
-
-      if (Record.size() > 10)
-        NewGV->setDLLStorageClass(GetDecodedDLLStorageClass(Record[10]));
+      NewGV->setPrivilegeSeparation(privilegeSeparation);
+      if (Record.size() > 11)
+        NewGV->setDLLStorageClass(GetDecodedDLLStorageClass(Record[11]));
       else
         UpgradeDLLImportExportLinkage(NewGV, Record[3]);
 

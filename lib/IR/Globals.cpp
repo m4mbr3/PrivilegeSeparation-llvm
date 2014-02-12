@@ -21,6 +21,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/LeakDetector.h"
+#include "llvm/Transforms/PrivilegeSeparation.h"
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
@@ -53,6 +54,7 @@ void GlobalValue::copyAttributesFrom(const GlobalValue *Src) {
   setSection(Src->getSection());
   setVisibility(Src->getVisibility());
   setUnnamedAddr(Src->hasUnnamedAddr());
+  setPrivilegeSeparation(Src->getPrivilegeSeparation());
 }
 
 void GlobalValue::setAlignment(unsigned Align) {
@@ -76,7 +78,7 @@ bool GlobalValue::isDeclaration() const {
   assert(isa<GlobalAlias>(this));
   return false;
 }
-  
+
 //===----------------------------------------------------------------------===//
 // GlobalVariable Implementation
 //===----------------------------------------------------------------------===//
@@ -97,7 +99,6 @@ GlobalVariable::GlobalVariable(Type *Ty, bool constant, LinkageTypes Link,
            "Initializer should be the same type as the GlobalVariable!");
     Op<0>() = InitVal;
   }
-
   LeakDetector::addGarbageObject(this);
 }
 
@@ -118,9 +119,8 @@ GlobalVariable::GlobalVariable(Module &M, Type *Ty, bool constant,
            "Initializer should be the same type as the GlobalVariable!");
     Op<0>() = InitVal;
   }
-  
   LeakDetector::addGarbageObject(this);
-  
+
   if (Before)
     Before->getParent()->getGlobalList().insert(Before, this);
   else
@@ -225,14 +225,14 @@ void GlobalAlias::eraseFromParent() {
 void GlobalAlias::setAliasee(Constant *Aliasee) {
   assert((!Aliasee || Aliasee->getType() == getType()) &&
          "Alias and aliasee types should match!");
-  
+
   setOperand(0, Aliasee);
 }
 
 GlobalValue *GlobalAlias::getAliasedGlobal() {
   Constant *C = getAliasee();
   if (C == 0) return 0;
-  
+
   if (GlobalValue *GV = dyn_cast<GlobalValue>(C))
     return GV;
 
@@ -241,7 +241,7 @@ GlobalValue *GlobalAlias::getAliasedGlobal() {
           CE->getOpcode() == Instruction::AddrSpaceCast ||
           CE->getOpcode() == Instruction::GetElementPtr) &&
          "Unsupported aliasee");
-  
+
   return cast<GlobalValue>(CE->getOperand(0));
 }
 

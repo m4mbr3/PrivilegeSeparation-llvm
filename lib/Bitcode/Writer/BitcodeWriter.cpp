@@ -28,6 +28,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/PrivilegeSeparation.h"
 #include <cctype>
 #include <map>
 using namespace llvm;
@@ -602,6 +603,7 @@ static void WriteModuleInfo(const Module *M, const ValueEnumerator &VE,
     else
       Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed,
                                Log2_32_Ceil(SectionMap.size()+1)));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed,NUM_OF_LEVELS));      // PrivilegeSeparation
     // Don't bother emitting vis + thread local.
     SimpleGVarAbbrev = Stream.EmitAbbrev(Abbv);
   }
@@ -613,7 +615,7 @@ static void WriteModuleInfo(const Module *M, const ValueEnumerator &VE,
     unsigned AbbrevToUse = 0;
 
     // GLOBALVAR: [type, isconst, initid,
-    //             linkage, alignment, section, visibility, threadlocal,
+    //             linkage, alignment, section, privilegeSeparation, visibility, threadlocal,
     //             unnamed_addr, externally_initialized, dllstorageclass]
     Vals.push_back(VE.getTypeID(GV->getType()));
     Vals.push_back(GV->isConstant());
@@ -622,6 +624,7 @@ static void WriteModuleInfo(const Module *M, const ValueEnumerator &VE,
     Vals.push_back(getEncodedLinkage(GV));
     Vals.push_back(Log2_32(GV->getAlignment())+1);
     Vals.push_back(GV->hasSection() ? SectionMap[GV->getSection()] : 0);
+    Vals.push_back(GV->getPrivilegeSeparation());
     if (GV->isThreadLocal() ||
         GV->getVisibility() != GlobalValue::DefaultVisibility ||
         GV->hasUnnamedAddr() || GV->isExternallyInitialized() ||

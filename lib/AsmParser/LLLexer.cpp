@@ -533,6 +533,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(exact);
   KEYWORD(inbounds);
   KEYWORD(align);
+  KEYWORD(privilegeSeparation);
   KEYWORD(addrspace);
   KEYWORD(section);
   KEYWORD(alias);
@@ -607,7 +608,6 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(sanitize_memory);
   KEYWORD(uwtable);
   KEYWORD(zeroext);
-  KEYWORD(privilege_separation);
 
   KEYWORD(type);
   KEYWORD(opaque);

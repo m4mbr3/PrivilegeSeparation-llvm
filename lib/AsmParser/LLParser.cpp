@@ -25,6 +25,7 @@
 #include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/PrivilegeSeparation.h"
 using namespace llvm;
 
 static std::string getTypeString(Type *T) {
@@ -801,6 +802,10 @@ bool LLParser::ParseGlobal(const std::string &Name, LocTy NameLoc,
       unsigned Alignment;
       if (ParseOptionalAlignment(Alignment)) return true;
       GV->setAlignment(Alignment);
+    } else if (Lex.getKind() == lltok::kw_privilegeSeparation) {
+      unsigned int privilegeSeparation;
+      ParsePrivilegeSeparation(privilegeSeparation);
+      GV->setPrivilegeSeparation(privilegeSeparation);
     } else {
       TokError("unknown global variable property!");
     }
@@ -1177,7 +1182,6 @@ bool LLParser::ParseOptionalParamAttrs(AttrBuilder &B) {
     case lltok::kw_signext:         B.addAttribute(Attribute::SExt); break;
     case lltok::kw_sret:            B.addAttribute(Attribute::StructRet); break;
     case lltok::kw_zeroext:         B.addAttribute(Attribute::ZExt); break;
-    //case lltok::kw_privilege_separation: B.addAttribute(Attribute::PrivilegeSeparation); break;
 
     case lltok::kw_alignstack:
     case lltok::kw_alwaysinline:
@@ -1266,7 +1270,6 @@ bool LLParser::ParseOptionalReturnAttrs(AttrBuilder &B) {
       HaveError |= Error(Lex.getLoc(), "invalid use of function-only attribute");
       break;
 
-    //case lltok::kw_privilege_separation:
     case lltok::kw_readnone:
     case lltok::kw_readonly:
       HaveError |= Error(Lex.getLoc(), "invalid use of attribute on return type");
@@ -1477,6 +1480,15 @@ bool LLParser::ParseOptionalAlignment(unsigned &Alignment) {
   if (Alignment > Value::MaximumAlignment)
     return Error(AlignLoc, "huge alignments are not supported yet");
   return false;
+}
+/// ParsePrivilegeSeparation
+/// ::= privilegeSeparation 9
+bool LLParser::ParsePrivilegeSeparation(unsigned int &privilegeSeparation) {
+    if (ParseUInt32(privilegeSeparation)) return true;
+    LocTy privilegeSepLoc = Lex.getLoc();
+    if (privilegeSeparation >= NUM_OF_LEVELS)
+        return Error(privilegeSepLoc, "Privilege level out of bound");
+    return false;
 }
 
 /// ParseOptionalCommaAlign

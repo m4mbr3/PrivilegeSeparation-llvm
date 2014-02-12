@@ -71,6 +71,7 @@ namespace lltok {
     kw_exact,
     kw_inbounds,
     kw_align,
+    kw_privilegeSeparation,
     kw_addrspace,
     kw_section,
     kw_alias,
@@ -132,7 +133,6 @@ namespace lltok {
     kw_sanitize_memory,
     kw_uwtable,
     kw_zeroext,
-    kw_privilege_separation,
 
     kw_type,
     kw_opaque,

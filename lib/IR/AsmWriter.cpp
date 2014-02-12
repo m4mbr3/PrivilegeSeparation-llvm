@@ -1449,7 +1449,7 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
   }
   if (GV->getAlignment())
     Out << ", align " << GV->getAlignment();
-
+  Out << ", privilegeSeparation  " << GV->getPrivilegeSeparation();
   printInfoComment(*GV);
 }
 

@@ -20,6 +20,7 @@
 
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/Transforms/PrivilegeSeparation.h"
 
 namespace llvm {
 
@@ -67,6 +68,7 @@ protected:
       Visibility(DefaultVisibility), Alignment(0), UnnamedAddr(0),
       DllStorageClass(DefaultStorageClass), Parent(0) {
     setName(Name);
+    privilegeSeparation = NUM_OF_LEVELS - 1;
   }
 
   // Note: VC++ treats enums as signed, so an extra bit is required to prevent
@@ -78,10 +80,25 @@ protected:
   unsigned DllStorageClass : 2; // DLL storage class
   Module *Parent;             // The containing module.
   std::string Section;        // Section to emit this into, empty mean default
+  unsigned int privilegeSeparation;
+
 public:
   ~GlobalValue() {
     removeDeadConstantUsers();   // remove any dead constants using this.
   }
+
+  ///Getter and Setters for the privilegeSeparation level
+  void setPrivilegeSeparation(unsigned int pS) {
+      privilegeSeparation = pS;
+  }
+
+  unsigned int getPrivilegeSeparation(void) {
+      return privilegeSeparation;
+  }
+  unsigned int getPrivilegeSeparation(void) const {
+    return privilegeSeparation;
+  }
+
 
   unsigned getAlignment() const {
     return (1u << Alignment) >> 1;
@@ -113,7 +130,7 @@ public:
   bool hasSection() const { return !Section.empty(); }
   const std::string &getSection() const { return Section; }
   void setSection(StringRef S) { Section = S; }
-  
+
   /// If the usage is empty (except transitively dead constants), then this
   /// global value can be safely deleted since the destructor will
   /// delete the dead constants as well.
@@ -279,7 +296,7 @@ public:
   /// Override from Constant class.
   virtual void destroyConstant();
 
-  /// isDeclaration - Return true if the primary definition of this global 
+  /// isDeclaration - Return true if the primary definition of this global
   /// value is outside of the current translation unit.
   bool isDeclaration() const;
 
