@@ -117,6 +117,12 @@ class PrivilegeSeparationOnModule : public ModulePass {
                         to_delete[value_int] = new std::vector<Function*>();
                     to_delete[value_int]->push_back(&fun);
                 }
+                else {
+                    std::stringstream ss;
+                    ss << NUM_OF_LEVELS-1;
+                    std::string sec = ".fun_ps_" + ss.str();
+                    fun.setSection(sec);
+                }
             }
             //Remove of the functions from the module and clone them into other structure
             for (unsigned int l = 0; l < NUM_OF_LEVELS; ++l) {
@@ -151,20 +157,6 @@ class PrivilegeSeparationOnModule : public ModulePass {
                 if (to_delete[i] != NULL)
                     delete to_delete[i];
             }
-        }
-
-        uint32_t getInstructionCount (Function &Fun) {
-            uint32_t ICount = 0;
-            // A llvm::Function is just a list of llvm::BasicBlock. In order to get
-            // instruction count we can visit all llvm::BasicBlocks ...
-            for(llvm::Function::const_iterator I = Fun.begin(),
-                                               E = Fun.end();
-                                               I != E;
-                                               ++I)
-              // ... and sum the llvm::BasicBlock size -- A llvm::BasicBlock size is just
-              // a list of instructions!
-              ICount += I->size();
-            return ICount;
         }
     };
 }
