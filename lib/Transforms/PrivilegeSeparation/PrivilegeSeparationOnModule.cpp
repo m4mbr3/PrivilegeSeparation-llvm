@@ -1,6 +1,8 @@
 #define DEBUG_TYPE "PrivilegeSeparationOnModule"
 #include <iostream>
+#include <string>
 #include <vector>
+#include <sstream>
 #include "llvm/Pass.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -73,6 +75,11 @@ class PrivilegeSeparationOnModule : public ModulePass {
             for (unsigned int i = 0; i < NUM_OF_LEVELS; ++i) {
                 if(my_list[i] != NULL) {
                     for (unsigned int j=0; j< my_list[i]->size(); ++j) {
+                        std::stringstream ss;
+                        ss << i;
+                        std::string sec = ".dat_ps_" + ss.str();
+                        StringRef sec_ref = StringRef(sec);
+                        my_list[i]->at(j)->setSection(sec_ref);
                         M.getGlobalList().push_back(my_list[i]->at(j));
                     }
                 }
@@ -128,6 +135,11 @@ class PrivilegeSeparationOnModule : public ModulePass {
             for (unsigned int i = 0; i < NUM_OF_LEVELS; ++i) {
                 if (my_list[i] != NULL) {
                     for (unsigned int j = 0; j< my_list[i]->size(); ++j) {
+                        std::stringstream ss;
+                        ss << i;
+                        std::string sec = ".fun_ps_" + ss.str();
+                        StringRef sec_ref = StringRef(sec);
+                        my_list[i]->at(j)->setSection(sec_ref);
                         M.getFunctionList().push_back(my_list[i]->at(j));
                     }
                 }
