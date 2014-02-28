@@ -161,17 +161,29 @@ class PrivilegeSeparationOnModule : public ModulePass {
         }
         void generateLinkScript() {
             std::string begin_script =      "/* Script for -z combreloc: combine and sort reloc sections */\n"
+#ifdef __x86_64__
                                 "OUTPUT_FORMAT(\"elf64-x86-64\", \"elf64-x86-64\",\n"
                                 "              \"elf64-x86-64\")\n"
                                 "OUTPUT_ARCH(i386:x86-64)\n"
                                 "ENTRY(_start)\n"
-                                "SEARCH_DIR(\"/usr/x86_64-pc-linux-gnu/lib64\"); SEARCH_DIR(\"/usr/lib64/binutils/x86_64-pc-linux-gnu/2.23.264\"); SEARCH_DIR(\"/usr/local/lib64\"); SEARCH_DIR(\"/lib64\"); SEARCH_DIR(\"/usr/lib64\"); SEARCH_DIR(\"/usr/x86_64-pc-linux-gnu/lib\"); SEARCH_DIR(\"/usr/lib64/binutils/x86_64-pc-linux-gnu/2.23.2\"); SEARCH_DIR(\"/usr/local/lib\"); SEARCH_DIR(\"/lib\"); SEARCH_DIR(\"/usr/lib\");\n"
+                                "SEARCH_DIR(\"/usr/x86_64-pc-linux-gnu/lib64\"); SEARCH_DIR(\"/usr/lib64/binutils/x86_64-pc-linux-gnu/*\"); SEARCH_DIR(\"/usr/local/lib64\"); SEARCH_DIR(\"/lib64\"); SEARCH_DIR(\"/usr/lib64\"); SEARCH_DIR(\"/usr/x86_64-pc-linux-gnu/lib\"); SEARCH_DIR(\"/usr/lib64/binutils/x86_64-pc-linux-gnu/*\"); SEARCH_DIR(\"/usr/local/lib\"); SEARCH_DIR(\"/lib\"); SEARCH_DIR(\"/usr/lib\");\n"
                                 "SECTIONS\n"
                                 "{\n"
                                 "  /* Read-only sections, merged into text segment: */\n"
                                 "  PROVIDE (__executable_start = SEGMENT_START(\"text-segment\", 0x400000)); . = SEGMENT_START(\"text-segment\", 0x400000) + SIZEOF_HEADERS;\n"
-                                "  .interp         : { *(.interp) }\n"
-                                "  .note.gnu.build-id : { *(.note.gnu.build-id) }\n"
+#elif __i386__
+                                "OUTPUT_FORMAT(\"elf32-i386\", \"elf32-i386\",\n"
+                                "              \"elf32-i386\")\n"
+                                "OUTPUT_ARCH(i386)\n"
+                                "ENTRY(_start)\n"
+                                "SEARCH_DIR(\"/usr/i686-pc-linux-gnu/lib\"); SEARCH_DIR(\"/usr/lib64/binutils/i686-pc-linux-gnu/*\"); SEARCH_DIR(\"/usr/local/lib\"); SEARCH_DIR(\"/lib\"); SEARCH_DIR(\"/usr/lib\");\n"
+                                "SECTIONS\n"
+                                "{\n"
+                                "  /* Read-only sections, merged into text segment: */\n"
+                                "  PROVIDE (__executable_start = SEGMENT_START(\"text-segment\", 0x08048000)); . = SEGMENT_START(\"text-segment\", 0x08048000) + SIZEOF_HEADERS;\n"
+#endif
+                                "  .interp         : { *(.interp) } : text : interp \n"
+                                "  .note.gnu.build-id : { *(.note.gnu.build-id) } :text\n"
                                 "  .hash           : { *(.hash) }\n"
                                 "  .gnu.hash       : { *(.gnu.hash) }\n"
                                 "  .dynsym         : { *(.dynsym) }\n"
@@ -219,15 +231,15 @@ std::string text_section =      "  . = ALIGN (CONSTANT (MAXPAGESIZE)) - ((CONSTA
                                 "    *(.text .stub .text.* .gnu.linkonce.t.*)\n"
                                 "    /* .gnu.warning sections are handled specially by elf32.em.  */\n"
                                 "    *(.gnu.warning)\n"
-                                "  }\n";
+                                "  } : text\n";
 std::string before_data =       "  .fini           :\n"
                                 "  {\n"
                                 "    KEEP (*(SORT_NONE(.fini)))\n"
-                                "  }\n"
+                                "  } : text\n"
                                 "  PROVIDE (__etext = .);\n"
                                 "  PROVIDE (_etext = .);\n"
                                 "  PROVIDE (etext = .);\n"
-                                "  .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) }\n"
+                                "  .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) } : text\n"
                                 "  .rodata1        : { *(.rodata1) }\n"
                                 "  .eh_frame_hdr : { *(.eh_frame_hdr) }\n"
                                 "  .eh_frame       : ONLY_IF_RO { KEEP (*(.eh_frame)) }\n"
@@ -259,7 +271,7 @@ std::string before_data =       "  .fini           :\n"
                                 "    KEEP (*(.init_array))\n"
                                 "    KEEP (*(EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtbeginTS.o *crtend.o *crtend?.o ) .ctors))\n"
                                 "    PROVIDE_HIDDEN (__init_array_end = .);\n"
-                                "  }\n"
+                                "  } : data\n"
                                 "  .fini_array     :\n"
                                 "  {\n"
                                 "    PROVIDE_HIDDEN (__fini_array_start = .);\n"
@@ -301,7 +313,7 @@ std::string before_data =       "  .fini           :\n"
                                 "  }\n"
                                 "  .jcr            : { KEEP (*(.jcr)) }\n"
                                 "  .data.rel.ro : { *(.data.rel.ro.local* .gnu.linkonce.d.rel.ro.local.*) *(.data.rel.ro .data.rel.ro.* .gnu.linkonce.d.rel.ro.*) }\n"
-                                "  .dynamic        : { *(.dynamic) }\n"
+                                "  .dynamic        : { *(.dynamic) } : data : dynamic\n"
                                 "  .got            : { *(.got) *(.igot) }\n"
                                 "  . = DATA_SEGMENT_RELRO_END (SIZEOF (.got.plt) >= 24 ? 24 : 0, .);\n"
                                 "  .got.plt        : { *(.got.plt)  *(.igot.plt) }\n"
@@ -310,8 +322,8 @@ std::string before_data =       "  .fini           :\n"
                                 "  {\n"
                                 "    *(.data .data.* .gnu.linkonce.d.*)\n"
                                 "    SORT(CONSTRUCTORS)\n"
-                                "  }\n";
-std::string after_data =        "  .data1          : { *(.data1) }\n"
+                                "  } : data\n";
+std::string after_data =        "  .data1          : { *(.data1) } : data \n"
                                 "  _edata = .; PROVIDE (edata = .);\n"
                                 "  . = .;\n"
                                 "  __bss_start = .;\n"
@@ -387,6 +399,14 @@ std::string after_data =        "  .data1          : { *(.data1) }\n"
                                 "  .gnu.attributes 0 : { KEEP (*(.gnu.attributes)) }\n"
                                 "  /DISCARD/ : { *(.note.GNU-stack) *(.gnu_debuglink) *(.gnu.lto_*) }\n"
                                 "}\n";
+std::string phdrs_front =       "  PHDRS\n"
+                                "  {\n"
+                                "    headers PT_PHDR PHDRS ;\n"
+                                "    interp PT_INTERP ; \n"
+                                "    text PT_LOAD FILEHDR PHDRS ; \n";
+std::string phdrs_data =        "    data PT_LOAD ;\n";
+std::string phdrs_back =        "    dynamic PT_DYNAMIC ; \n"
+                                "  }\n";
             std::ofstream script;
             script.open("ps_link_script.ld");
             script << begin_script;
@@ -399,7 +419,7 @@ std::string after_data =        "  .data1          : { *(.data1) }\n"
                 script << "  .fun_ps_" << i << " :\n";
                 script << "  {\n";
                 script << "    *(fun_ps_"<< i << ")\n";
-                script << "  }\n";
+                script << "  } : fun_ps_"<< i <<"\n";
             }
             script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF (.fun_ps_"<< NUM_OF_LEVELS -1 <<");\n";
             script << before_data;
@@ -407,14 +427,23 @@ std::string after_data =        "  .data1          : { *(.data1) }\n"
                 if ( i == 0)
                     script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.data);\n";
                 else
-                    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.data_ps_"<< i-1 <<");\n";
-                script << "  .data_ps_" << i << " :\n";
+                    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.dat_ps_"<< i-1 <<");\n";
+                script << "  .dat_ps_" << i << " :\n";
                 script << "  {\n";
-                script << "    *(data_ps_"<< i << ")\n";
-                script << "  }\n";
+                script << "    *(dat_ps_"<< i << ")\n";
+                script << "  } : dat_ps_"<< i <<"\n";
             }
-            script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.data_ps_"<< NUM_OF_LEVELS -1 <<");\n";
+            script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.dat_ps_"<< NUM_OF_LEVELS -1 <<");\n";
             script << after_data;
+            script << phdrs_front;
+            for (unsigned int i=0; i< NUM_OF_LEVELS; ++i) {
+                script << "    fun_ps_"<<i<<" PT_LOAD ;\n";
+            }
+            script << phdrs_data;
+            for (unsigned int i=0; i< NUM_OF_LEVELS; ++i) {
+                script << "    dat_ps_"<<i<<" PT_LOAD ;\n";
+            }
+            script << phdrs_back;
             script.close();
             return;
         }
