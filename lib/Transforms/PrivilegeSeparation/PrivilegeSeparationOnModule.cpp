@@ -21,15 +21,17 @@ class PrivilegeSeparationOnModule : public ModulePass {
         static char ID;
         PrivilegeSeparationOnModule() : ModulePass(ID) {}
         virtual bool runOnModule(Module &M) {
-            runOnFunctions(M);
-            runOnGlobalVariables(M);
-            generateLinkScript();
+	    std::bitset<NUM_OF_LEVELS> isItUsedFun (0);
+	    std::bitset<NUM_OF_LEVELS> isItUsedVar (0);
+            runOnFunctions(M, &isItUsedFun);
+            runOnGlobalVariables(M, &isItUsedVar);
+            generateLinkScript(&isItUsedFun, &isItUsedVar);
             return true;
         }
-        void runOnGlobalVariables(Module &M) {
+        void runOnGlobalVariables(Module &M,std::bitset<NUM_OF_LEVELS>* isItUsedVar) {
             std::vector<GlobalVariable*>* my_list[NUM_OF_LEVELS];
             std::vector<GlobalVariable*>* to_delete[NUM_OF_LEVELS];
-            for (unsigned int i = 0; i< NUM_OF_LEVELS; ++i) {
+	                for (unsigned int i = 0; i< NUM_OF_LEVELS; ++i) {
                 my_list[i] = NULL;
                 to_delete[i] = NULL;
             }
@@ -81,6 +83,7 @@ class PrivilegeSeparationOnModule : public ModulePass {
                         std::string sec = ".dat_ps_" + ss.str();
                         StringRef sec_ref = StringRef(sec);
                         my_list[i]->at(j)->setSection(sec_ref);
+			isItUsedVar->set(i,1);
                         M.getGlobalList().push_back(my_list[i]->at(j));
                     }
                 }
@@ -92,7 +95,7 @@ class PrivilegeSeparationOnModule : public ModulePass {
                     delete to_delete[i];
             }
         }
-        void runOnFunctions(Module &M) {
+        void runOnFunctions(Module &M, std::bitset<NUM_OF_LEVELS>* isItUsedFun) {
             std::vector<Function*>* my_list[NUM_OF_LEVELS];
             std::vector<Function*>* to_delete[NUM_OF_LEVELS];
             for (unsigned int i = 0; i<NUM_OF_LEVELS; ++i) {
@@ -147,6 +150,7 @@ class PrivilegeSeparationOnModule : public ModulePass {
                         std::string sec = ".fun_ps_" + ss.str();
                         StringRef sec_ref = StringRef(sec);
                         my_list[i]->at(j)->setSection(sec_ref);
+			isItUsedFun->set(i,1);
                         M.getFunctionList().push_back(my_list[i]->at(j));
                     }
                 }
@@ -159,7 +163,7 @@ class PrivilegeSeparationOnModule : public ModulePass {
                     delete to_delete[i];
             }
         }
-        void generateLinkScript() {
+        void generateLinkScript(std::bitset<NUM_OF_LEVELS>* isItUsedFun, std::bitset<NUM_OF_LEVELS>* isItUsedVar) {
             std::string begin_script =      "/* Script for -z combreloc: combine and sort reloc sections */\n"
 #ifdef __x86_64__
                                 "OUTPUT_FORMAT(\"elf64-x86-64\", \"elf64-x86-64\",\n"
@@ -439,37 +443,47 @@ std::string phdrs_back =        "    dynamic PT_DYNAMIC ; \n"
             script.open("ps_link_script.ld");
             script << begin_script;
             script << text_section;
+	    unsigned int last_i=-1;
             for (unsigned int i=0; i< NUM_OF_LEVELS; ++i) {
-                if ( i == 0)
-                    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.text);\n";
-                else
-                    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.fun_ps_"<< i-1<<");\n";
-                script << "  .fun_ps_" << i << " :\n";
-                script << "  {\n";
-                script << "    *(fun_ps_"<< i << ")\n";
-                script << "  } : fun_ps_"<< i <<"\n";
+	   	if (isItUsedFun->test(i)) { 
+			if ( i == 0 || last_i == -1)
+			    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.text);\n";
+			else
+			    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.fun_ps_"<< last_i<<");\n";
+			script << "  .fun_ps_" << i << " :\n";
+			script << "  {\n";
+			script << "    *(fun_ps_"<< i << ")\n";
+			script << "  } : fun_ps_"<< i <<"\n";
+			last_i = i;
+		}			
             }
-            script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF (.fun_ps_"<< NUM_OF_LEVELS -1 <<");\n";
+            script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF (.fun_ps_"<< last_i <<");\n";
             script << before_data;
+	    last_i=-1;
             for (unsigned int i=0; i< NUM_OF_LEVELS; ++i) {
-                if ( i == 0)
-                    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.data);\n";
-                else
-                    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.dat_ps_"<< i-1 <<");\n";
-                script << "  .dat_ps_" << i << " :\n";
-                script << "  {\n";
-                script << "    *(dat_ps_"<< i << ")\n";
-                script << "  } : dat_ps_"<< i <<"\n";
+		if (isItUsedVar->test(i)){
+			if ( i == 0 || last_i == -1)
+			    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.data);\n";
+			else
+			    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.dat_ps_"<< last_i <<");\n";
+			script << "  .dat_ps_" << i << " :\n";
+			script << "  {\n";
+			script << "    *(dat_ps_"<< i << ")\n";
+			script << "  } : dat_ps_"<< i <<"\n";
+			last_i = i;
+		}
             }
-            script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.dat_ps_"<< NUM_OF_LEVELS -1 <<");\n";
+            script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.dat_ps_"<< last_i <<");\n";
             script << after_data;
             script << phdrs_front;
             for (unsigned int i=0; i< NUM_OF_LEVELS; ++i) {
-                script << "    fun_ps_"<<i<<" PT_LOAD ;\n";
+	    	if (isItUsedFun->test(i))
+                	script << "    fun_ps_"<<i<<" PT_LOAD ;\n";
             }
             script << phdrs_data;
             for (unsigned int i=0; i< NUM_OF_LEVELS; ++i) {
-                script << "    dat_ps_"<<i<<" PT_LOAD ;\n";
+	    	if (isItUsedVar->test(i))
+                	script << "    dat_ps_"<<i<<" PT_LOAD ;\n";
             }
             script << phdrs_back;
             script.close();
