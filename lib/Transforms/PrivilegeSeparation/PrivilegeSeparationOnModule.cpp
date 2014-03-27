@@ -446,10 +446,11 @@ std::string phdrs_back =        "    dynamic PT_DYNAMIC ; \n"
 	    unsigned int last_i=-1;
             for (unsigned int i=0; i< NUM_OF_LEVELS; ++i) {
 	   	if (isItUsedFun->test(i)) { 
-			if ( i == 0 || last_i == -1)
+			/*if ( i == 0 || last_i == -1)
 			    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.text);\n";
 			else
-			    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.fun_ps_"<< last_i<<");\n";
+			    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.fun_ps_"<< last_i<<");\n";*/
+			script << "  . = . + 0x1000; \n";
 			script << "  .fun_ps_" << i << " :\n";
 			script << "  {\n";
 			script << "    *(fun_ps_"<< i << ")\n";
@@ -462,10 +463,11 @@ std::string phdrs_back =        "    dynamic PT_DYNAMIC ; \n"
 	    last_i=-1;
             for (unsigned int i=0; i< NUM_OF_LEVELS; ++i) {
 		if (isItUsedVar->test(i)){
-			if ( i == 0 || last_i == -1)
+			/*if ( i == 0 || last_i == -1)
 			    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.data);\n";
 			else
-			    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.dat_ps_"<< last_i <<");\n";
+			    script << "  . = . + CONSTANT (COMMONPAGESIZE) - SIZEOF(.dat_ps_"<< last_i <<");\n";*/
+			script << "  . = . + 0x1000;\n";
 			script << "  .dat_ps_" << i << " :\n";
 			script << "  {\n";
 			script << "    *(dat_ps_"<< i << ")\n";
