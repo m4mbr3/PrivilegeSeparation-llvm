@@ -23,6 +23,8 @@ class PrivilegeSeparationOnModule : public ModulePass {
         virtual bool runOnModule(Module &M) {
 	    std::bitset<NUM_OF_LEVELS> isItUsedFun (0);
 	    std::bitset<NUM_OF_LEVELS> isItUsedVar (0);
+	    isItUsedFun.set(NUM_OF_LEVELS-1,1);
+	    isItUsedVar.set(NUM_OF_LEVELS-1,1);
             runOnFunctions(M, &isItUsedFun);
             runOnGlobalVariables(M, &isItUsedVar);
             generateLinkScript(&isItUsedFun, &isItUsedVar);
