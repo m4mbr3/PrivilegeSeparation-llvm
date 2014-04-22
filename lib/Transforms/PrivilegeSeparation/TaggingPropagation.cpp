@@ -16,7 +16,7 @@ class TaggingPropagation : public ModulePass {
         static char ID;
         TaggingPropagation() : ModulePass(ID) {}
         virtual bool runOnModule(Module &M) {
-            std::vector<CallGraphNode*> *sons = NULL; 
+            std::vector<CallGraphNode*> *sons = NULL;
             std::vector<CallGraphNode*> *not_visited = new std::vector<CallGraphNode*>();
             std::vector<CallGraphNode*> *dependencies = new std::vector<CallGraphNode*>();
             std::vector<CallGraphNode*> *visited = new std::vector<CallGraphNode*>();
@@ -29,7 +29,7 @@ class TaggingPropagation : public ModulePass {
                 CallGraphNode *CGN = BCG->second;
                 Function *fun = CGN->getFunction();
                 if (!fun || fun->isDeclaration()) continue;
-                if (fun->getName().str().compare("main") == 0) { 
+                if (fun->getName().str().compare("main") == 0) {
                     root = CGN;
                     std::stringstream ss;
                     ss << NUM_OF_LEVELS - 1;
@@ -37,14 +37,12 @@ class TaggingPropagation : public ModulePass {
                     StringRef sec_ref = StringRef(sec);
                     root->getFunction()->setSection(sec_ref);
                 }
-                /*else {
-                    std::stringstream ss;
-                    ss << NUM_OF_LEVELS -1;
-                    std::string sec = ".fun_ps_" + ss.str();
-                    StringRef sec_ref = StringRef(sec);
-                    fun->setSection(sec_ref);
-                }*/
-                std::cout << "Considering : " << fun->getName().str() << std::endl;
+                AttributeSet cuAttrSet = fun->getAttributes();
+                if (cuAttrSet.hasAttribute(AttributeSet::FunctionIndex, "privilege-separation")) {
+                    Attribute att = cuAttrSet.getAttribute(AttributeSet::FunctionIndex, "privilege-separation");
+                    std::string value_str = att.getValueAsString().str();
+                    fun->setSection(".fun_ps_" + value_str);
+                }
                 for(Function::iterator BB = fun->begin(), E = fun->end(); BB!= E; ++BB) {
                     for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
                         CallSite CS(cast<Value>(I));
@@ -52,12 +50,14 @@ class TaggingPropagation : public ModulePass {
                             continue;
                         if (CS.getCalledFunction() && CS.getCalledFunction()->isDeclaration())
                             continue;
+                        if (CS.getCaller() && CS.getCaller()->isDeclaration())
+                            continue;
+                        if (CS.getCaller()->getSection().compare(".text.startup") == 0 && CS.getCaller()->getSection().compare(".text.startup") == 0)
+                            continue;
                         CallSites->push_back(CS);
-                        std::cout << "CallSite found" << std::endl;
                     }
-                }    
+                }
             }
-            std::cout << "HERE" << std::endl;
             while(!isPropagated(CG)) {
                 not_visited->push_back(root);
                 while(!not_visited->empty()) {
@@ -79,16 +79,17 @@ class TaggingPropagation : public ModulePass {
                             //if there are any
                             sons = get_list_sons(current);
                             while(!sons->empty()) {
-                                not_visited->push_back(sons->back());
+                                if (std::find(visited->begin(), visited->end(), sons->back()) ==  visited->end())
+                                    not_visited->push_back(sons->back());
                                 sons->pop_back();
                             }
                             //delete sons;
                         }
                         else {
-                            //case where It's not ready to elaborate the node due some missing dependencies 
+                            //case where It's not ready to elaborate the node due some missing dependencies
                             //so the idea is that we put again in the queue the node and we hopefully next time
                             //we will be able to tag it
-                            not_visited->insert(not_visited->begin(),current); 
+                            not_visited->insert(not_visited->begin(),current);
                         }
                     }
                     else {
@@ -97,13 +98,15 @@ class TaggingPropagation : public ModulePass {
                         visited->push_back(current);
                         sons = get_list_sons(current);
                         while(!sons->empty()){
+                            if (std::find(visited->begin(), visited->end(), sons->back()) == visited->end())
                                 not_visited->push_back(sons->back());
-                                sons->pop_back();
+                            sons->pop_back();
                         }
                         //delete sons;
                     }
                 }
             }
+            print_tagging_propagation_status(CG);
             delete sons;
             delete CallSites;
             delete not_visited;
@@ -121,15 +124,15 @@ class TaggingPropagation : public ModulePass {
         }
         /*
          *  Function to control if all the parents have a valid tag
-         *  
+         *
          */
         bool is_all_parents_tagged(CallGraphNode *node, std::vector<CallSite> *CallSites, int *level) {
-           Function *child = node->getFunction();
-            std::vector<Function*> *parents = new std::vector<Function*>(); 
+            Function *child = node->getFunction();
+            std::vector<Function*> *parents = new std::vector<Function*>();
             for(unsigned i = 0; i != CallSites->size(); ++i) {
-                Function *caller = CallSites[i].back().getCaller();
-                Function *callee = CallSites[i].back().getCalledFunction();
-                if (callee == child) {
+                Function *caller = CallSites->at(i).getCaller();
+                Function *callee = CallSites->at(i).getCalledFunction();
+                if (callee->getName().str().compare(child->getName().str()) == 0) {
                    std::size_t pos = caller->getSection().find(".fun_ps_");
                    if (pos == std::string::npos) {
                        delete parents;
@@ -144,14 +147,27 @@ class TaggingPropagation : public ModulePass {
                    }
                 }
             }
-            delete parents; 
+            delete parents;
             return true;
         }
 
-
-
         /*
-         *  Fucntion to obtains all the sons of a certain node already don't removing 
+         *  Utility to print the state of every function at the end of the elaboration
+         *
+         */
+        void print_tagging_propagation_status(CallGraph *CG) {
+            CallGraph::iterator BCG = CG->begin();
+            CallGraph::iterator ECG = CG->end();
+            std::cout << "------------------STATUS-----------------------" << std::endl;
+            for(; BCG != ECG; ++BCG) {
+                CallGraphNode *CGN = BCG->second;
+                Function *fun = CGN->getFunction();
+                if(!fun || fun->isDeclaration()) continue;
+                std::cout << "Function " << fun->getName().str() << " tag " << fun->getSection() << std::endl;
+            }
+        }
+        /*
+         *  Fucntion to obtains all the sons of a certain node already don't removing
          *  eventually recursive dependency
          */
         std::vector<CallGraphNode*>* get_list_sons(CallGraphNode *node) {
@@ -166,10 +182,10 @@ class TaggingPropagation : public ModulePass {
             }
             return sons_list;
         }
-        
+
         /*
          *  Function to control when the analysis is completed. It travers all the call graph
-         *  and control if every node has the 
+         *  and control if every node has the
          *
          */
         bool isPropagated(CallGraph *CG) {
@@ -180,9 +196,7 @@ class TaggingPropagation : public ModulePass {
                 Function *fun = CGN->getFunction();
                 if (!fun || fun->isDeclaration()) continue;
                 std::size_t pos = fun->getSection().find(".fun_ps_");
-                if (pos == std::string::npos) {
-                    std::cout << fun->getName().str() << std::endl;
-                    std::cout << fun->getSection() << std::endl;
+                if (pos == std::string::npos && fun->getSection().compare(".text.startup") != 0) {
                     return false;
                 }
             }
