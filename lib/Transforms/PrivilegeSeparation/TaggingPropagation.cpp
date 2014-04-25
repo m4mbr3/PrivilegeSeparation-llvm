@@ -18,7 +18,6 @@ class TaggingPropagation : public ModulePass {
         virtual bool runOnModule(Module &M) {
             std::vector<CallGraphNode*> *sons = NULL;
             std::vector<CallGraphNode*> *not_visited = new std::vector<CallGraphNode*>();
-            std::vector<CallGraphNode*> *dependencies = new std::vector<CallGraphNode*>();
             std::vector<CallGraphNode*> *visited = new std::vector<CallGraphNode*>();
             std::vector<CallSite> *CallSites = new std::vector<CallSite>();
             CallGraphNode *root = NULL;
@@ -83,7 +82,6 @@ class TaggingPropagation : public ModulePass {
                                     not_visited->push_back(sons->back());
                                 sons->pop_back();
                             }
-                            //delete sons;
                         }
                         else {
                             //case where It's not ready to elaborate the node due some missing dependencies
@@ -102,7 +100,6 @@ class TaggingPropagation : public ModulePass {
                                 not_visited->push_back(sons->back());
                             sons->pop_back();
                         }
-                        //delete sons;
                     }
                 }
             }
@@ -110,7 +107,6 @@ class TaggingPropagation : public ModulePass {
             delete sons;
             delete CallSites;
             delete not_visited;
-            delete dependencies;
             delete visited;
             delete CG;
             return true;
