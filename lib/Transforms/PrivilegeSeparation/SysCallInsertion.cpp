@@ -9,6 +9,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <vector>
 #include <iostream>
+#define SYSCALLNUM 352
 using namespace llvm;
 
 namespace {
@@ -35,19 +36,19 @@ class SysCallInsertion : public ModulePass{
                 }
                 //Save the call instruction and the next instruction
                 //Split function in multiple basic block
-                if (I->getParent()->getTerminator() == NULL ) {
-                    std::cout << "Function " << I->getParent()->getParent()->getName().str() << " is not well formed" << std::endl;
-                }
                 BasicBlock *head = I->getParent();
                 BasicBlock *tail = head->splitBasicBlock(I);
                 TerminatorInst *headOldTerm = head->getTerminator();
-
                 //tail->getInstList().pop_front();
+                //headOldTerm->moveBefore(I);
                 I->removeFromParent();
                 //Crete another basic block for the true case of the if I want insert
                 BasicBlock *label_if_then = BasicBlock::Create(M.getContext(), "if.then",head->getParent(), tail);
                 //Remove the call instruction from the basicblock
+                //Re-Add the call instruction I removed from the original code
+                label_if_then->getInstList().push_front(I);
 
+                BranchInst::Create(tail, label_if_then);
                 //Syscall Prototype and pointer
                 std::vector<Type*> FuncTy_2_args;
                 FuncTy_2_args.push_back(IntegerType::get(M.getContext(), 32));
@@ -55,11 +56,9 @@ class SysCallInsertion : public ModulePass{
                 FunctionType *FuncTy_2 = FunctionType::get(IntegerType::get(M.getContext(), 32), FuncTy_2_args, true);
                 PointerType *PointerTy_1 = PointerType::get(FuncTy_2, 0);
 
-                //Re-Add the call instruction I removed from the original code
-                label_if_then->getInstList().push_front(I);
-
                 //Constant Definition
-                ConstantInt* num_syscall = ConstantInt::get(M.getContext(), APInt(32, StringRef("352"), 10));
+                ConstantInt* num_syscall = ConstantInt::get(M.getContext(), APInt(32, SYSCALLNUM, false));
+                ConstantInt* num_caller = ConstantInt::get(M.getContext(), APInt(32, StringRef(cr+8),10));
                 ConstantInt* num_callee  = ConstantInt::get(M.getContext(), APInt(32, StringRef(ce+8),10));
                 ConstantInt* zero = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"),10));
 
@@ -88,13 +87,18 @@ class SysCallInsertion : public ModulePass{
 
                 //Creating Template for the  ???
                 Constant* sys_ptr = ConstantExpr::getCast(Instruction::BitCast,  func_syscall, PointerTy_1);
-                std::vector<Value *> int32_call_params;
-                int32_call_params.push_back(num_syscall);
-                int32_call_params.push_back(num_callee);
-                CallInst *SysCall  = CallInst::Create(sys_ptr, int32_call_params, "call", label_if_then);
-                SysCall->setCallingConv(CallingConv::C);
-                SysCall->setTailCall(true);
-                AttributeSet int32_call_PAL;
+                std::vector<Value *> upgrade;
+                upgrade.push_back(num_syscall);
+                upgrade.push_back(num_callee);
+                std::vector<Value *> downgrade;
+                downgrade.push_back(num_syscall);
+                downgrade.push_back(num_caller);
+
+                CallInst *syscall_upgrade  = CallInst::Create(sys_ptr, upgrade, "syscall", head->getTerminator());
+                CallInst *syscall_downgrade = CallInst::Create(sys_ptr, downgrade, "syscall", label_if_then->getTerminator());
+
+                syscall_upgrade->setCallingConv(CallingConv::C);
+                AttributeSet upgrade_PAL;
                 {
                     SmallVector<AttributeSet, 4> Attrs;
                     AttributeSet PAS;
@@ -104,15 +108,31 @@ class SysCallInsertion : public ModulePass{
                         PAS = AttributeSet::get(M.getContext(), Attrs);
                     }
                     Attrs.push_back(PAS);
-                    int32_call_PAL = AttributeSet::get(M.getContext(), Attrs);
+                    upgrade_PAL = AttributeSet::get(M.getContext(), Attrs);
                 }
-                SysCall->setAttributes(int32_call_PAL);
+                syscall_upgrade->setAttributes(upgrade_PAL);
+
+                syscall_downgrade->setCallingConv(CallingConv::C);
+                AttributeSet downgrade_PAL;
+                {
+                    SmallVector<AttributeSet, 4> Attrs;
+                    AttributeSet PAS;
+                    {
+                        AttrBuilder B;
+                        B.addAttribute(Attribute::NoUnwind);
+                        PAS = AttributeSet::get(M.getContext(), Attrs);
+                    }
+                    Attrs.push_back(PAS);
+                    downgrade_PAL = AttributeSet::get(M.getContext(), Attrs);
+                }
+                syscall_upgrade->setAttributes(downgrade_PAL);
+
                 //End template
 
                 //Condition
-                ICmpInst* condition = new ICmpInst(*head, ICmpInst::ICMP_EQ, SysCall, zero, "cmp");
-
+                ICmpInst* condition = new ICmpInst(head->getTerminator(), ICmpInst::ICMP_EQ, syscall_upgrade, zero, "cmp");
                 BranchInst *headNewTerm = BranchInst::Create(label_if_then, tail, condition);
+                headNewTerm->setDebugLoc(I->getDebugLoc());
                 ReplaceInstWithInst (headOldTerm, headNewTerm);
             }
             if(visited) delete visited;
@@ -160,9 +180,33 @@ class SysCallInsertion : public ModulePass{
             }
             return false;
         }
+        void printBasicBlock (Instruction *I) {
+            BasicBlock *b = I->getParent();
+            BasicBlock::iterator b_it = b->begin();
+            BasicBlock::iterator e_it = b->end();
+            std::cout << "DEBUG INFO FOR " << I->getName().str() << std::endl;
+            for (; b_it != e_it; ++b_it) {
+                Instruction *is = b_it;
+                if (TerminatorInst::classof(is))
+                    std::cout << "Instruction : TerminatorInst" << std::endl;
+                else
+                    std::cout << "Instruction : " << is->getName().str() << std::endl;
+            }
+        }
+        void printBasicBlock (BasicBlock *B) {
+            BasicBlock::iterator b_it = B->begin();
+            BasicBlock::iterator e_it = B->end();
+            std::cout << "DEBUG INFO FOR " << B->getParent()->getName().str() << std::endl;
+            for (; b_it != e_it; ++b_it) {
+                Instruction *is = b_it;
+                if (TerminatorInst::classof(is))
+                    std::cout << "Instruction : TerminatorInst" << std::endl;
+                else
+                    std::cout << "Instruction : " << is->getName().str() << std::endl;
+            }
+        }
+
     };
-
-
 }
 
 char SysCallInsertion::ID = 0;
