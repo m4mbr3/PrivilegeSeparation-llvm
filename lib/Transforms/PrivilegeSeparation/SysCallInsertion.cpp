@@ -60,7 +60,7 @@ class SysCallInsertion : public ModulePass{
                 ConstantInt* num_syscall = ConstantInt::get(M.getContext(), APInt(32, SYSCALLNUM, false));
                 ConstantInt* num_caller = ConstantInt::get(M.getContext(), APInt(32, StringRef(cr+8),10));
                 ConstantInt* num_callee  = ConstantInt::get(M.getContext(), APInt(32, StringRef(ce+8),10));
-                ConstantInt* zero = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"),10));
+                ConstantInt* one = ConstantInt::get(M.getContext(), APInt(32, StringRef("1"),10));
 
 
                 //Creating template for the syscall call to add
@@ -130,7 +130,7 @@ class SysCallInsertion : public ModulePass{
                 //End template
 
                 //Condition
-                ICmpInst* condition = new ICmpInst(head->getTerminator(), ICmpInst::ICMP_EQ, syscall_upgrade, zero, "cmp");
+                ICmpInst* condition = new ICmpInst(head->getTerminator(), ICmpInst::ICMP_EQ, syscall_upgrade, one, "cmp");
                 BranchInst *headNewTerm = BranchInst::Create(label_if_then, tail, condition);
                 headNewTerm->setDebugLoc(I->getDebugLoc());
                 ReplaceInstWithInst (headOldTerm, headNewTerm);
