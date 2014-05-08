@@ -69,14 +69,19 @@ class SysCallInsertion : public ModulePass{
                         Type::getVoidTy(M.getContext()),
                         exit_ty_args,
                         false);
-                Function* func_exit = M.getFunction("exit");
+                Function* func_exit = M.getFunction("_Z12exit_wrapperv");
+                bool isNotExist = false;
                 if (!func_exit) {
-                    func_exit = Function::Create(
-                            exit_ty,
-                            GlobalValue::ExternalLinkage,
-                            "exit",
-                            &M);
-                    func_exit->setCallingConv(CallingConv::C);
+                    func_exit = M.getFunction("exit");
+                    if (!func_exit) {
+                        func_exit = Function::Create(
+                                exit_ty,
+                                GlobalValue::ExternalLinkage,
+                                "exit",
+                                &M);
+                        func_exit->setCallingConv(CallingConv::C);
+                    }
+                    isNotExist = true;
                 }
                 AttributeSet func_exit_PAL;
                 {
@@ -122,8 +127,10 @@ class SysCallInsertion : public ModulePass{
                 std::vector<Value *> downgrade;
                 downgrade.push_back(num_syscall);
                 downgrade.push_back(num_caller);
-
-                CallInst::Create(func_exit, mone, "", label_if_then->getTerminator());
+                if ( isNotExist) 
+                    CallInst::Create(func_exit, mone, "", label_if_then->getTerminator());
+                else 
+                    CallInst::Create(func_exit, "", label_if_then->getTerminator());
                 CallInst *syscall_downgrade = CallInst::Create(sys_ptr, downgrade, "syscall");
                 tail->getInstList().push_front(syscall_downgrade);
                 tail->getInstList().push_front(I);
