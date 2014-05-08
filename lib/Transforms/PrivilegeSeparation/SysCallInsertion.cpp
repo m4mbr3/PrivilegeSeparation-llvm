@@ -46,7 +46,6 @@ class SysCallInsertion : public ModulePass{
                 BasicBlock *label_if_then = BasicBlock::Create(M.getContext(), "if.then",head->getParent(), tail);
                 //Remove the call instruction from the basicblock
                 //Re-Add the call instruction I removed from the original code
-                label_if_then->getInstList().push_front(I);
 
                 BranchInst::Create(tail, label_if_then);
                 //Syscall Prototype and pointer
@@ -61,7 +60,37 @@ class SysCallInsertion : public ModulePass{
                 ConstantInt* num_caller = ConstantInt::get(M.getContext(), APInt(32, StringRef(cr+8),10));
                 ConstantInt* num_callee  = ConstantInt::get(M.getContext(), APInt(32, StringRef(ce+8),10));
                 ConstantInt* one = ConstantInt::get(M.getContext(), APInt(32, StringRef("1"),10));
+                ConstantInt* mone = ConstantInt::get(M.getContext(), APInt(32, StringRef("-1"),10));
 
+                //Creating template for the exit call to add
+                std::vector<Type *> exit_ty_args;
+                exit_ty_args.push_back(IntegerType::get(M.getContext(), 32));
+                FunctionType* exit_ty = FunctionType::get(
+                        Type::getVoidTy(M.getContext()),
+                        exit_ty_args,
+                        false);
+                Function* func_exit = M.getFunction("exit");
+                if (!func_exit) {
+                    func_exit = Function::Create(
+                            exit_ty,
+                            GlobalValue::ExternalLinkage,
+                            "exit",
+                            &M);
+                    func_exit->setCallingConv(CallingConv::C);
+                }
+                AttributeSet func_exit_PAL;
+                {
+                    SmallVector<AttributeSet, 4> Attrs;
+                    AttributeSet PAS;
+                    {
+                        AttrBuilder B;
+                        B.addAttribute(Attribute::NoReturn);
+                        PAS = AttributeSet::get(M.getContext(), ~0U, B);
+                    }
+                    Attrs.push_back(PAS);
+                    func_exit_PAL = AttributeSet::get(M.getContext(), Attrs);
+                }
+                func_exit->setAttributes(func_exit_PAL);
 
                 //Creating template for the syscall call to add
                 std::vector<Type*> FuncTy_9_args;
@@ -94,9 +123,11 @@ class SysCallInsertion : public ModulePass{
                 downgrade.push_back(num_syscall);
                 downgrade.push_back(num_caller);
 
+                CallInst::Create(func_exit, mone, "", label_if_then->getTerminator());
+                CallInst *syscall_downgrade = CallInst::Create(sys_ptr, downgrade, "syscall");
+                tail->getInstList().push_front(syscall_downgrade);
+                tail->getInstList().push_front(I);
                 CallInst *syscall_upgrade  = CallInst::Create(sys_ptr, upgrade, "syscall", head->getTerminator());
-                CallInst *syscall_downgrade = CallInst::Create(sys_ptr, downgrade, "syscall", label_if_then->getTerminator());
-
                 syscall_upgrade->setCallingConv(CallingConv::C);
                 AttributeSet upgrade_PAL;
                 {
@@ -130,7 +161,7 @@ class SysCallInsertion : public ModulePass{
                 //End template
 
                 //Condition
-                ICmpInst* condition = new ICmpInst(head->getTerminator(), ICmpInst::ICMP_EQ, syscall_upgrade, one, "cmp");
+                ICmpInst* condition = new ICmpInst(head->getTerminator(), ICmpInst::ICMP_NE, syscall_upgrade, one, "cmp");
                 BranchInst *headNewTerm = BranchInst::Create(label_if_then, tail, condition);
                 headNewTerm->setDebugLoc(I->getDebugLoc());
                 ReplaceInstWithInst (headOldTerm, headNewTerm);
