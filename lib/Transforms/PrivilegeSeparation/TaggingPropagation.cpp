@@ -28,6 +28,13 @@ class TaggingPropagation : public ModulePass {
                 CallGraphNode *CGN = BCG->second;
                 Function *fun = CGN->getFunction();
                 if (!fun || fun->isDeclaration()) continue;
+                if (fun->getName().str().compare("_Z12exit_wrapperv") == 0) {
+                    std::stringstream ss;
+                    ss << NUM_OF_LEVELS - 1;
+                    std::string sec = ".fun_ps_" + ss.str();
+                    StringRef sec_ref = StringRef(sec);
+                    fun->setSection(sec_ref);
+                }
                 if (fun->getName().str().compare("main") == 0) {
                     root = CGN;
                     std::stringstream ss;
@@ -159,6 +166,7 @@ class TaggingPropagation : public ModulePass {
                 CallGraphNode *CGN = BCG->second;
                 Function *fun = CGN->getFunction();
                 if(!fun || fun->isDeclaration()) continue;
+                if(fun->isDefTriviallyDead()) continue;
                 std::cout << "Function " << fun->getName().str() << " tag " << fun->getSection() << std::endl;
             }
         }
@@ -191,6 +199,7 @@ class TaggingPropagation : public ModulePass {
                 CallGraphNode *CGN = BCG->second;
                 Function *fun = CGN->getFunction();
                 if (!fun || fun->isDeclaration()) continue;
+                if (fun->getName().str().compare("_Z12exit_wrapperv") == 0) continue;
                 std::size_t pos = fun->getSection().find(".fun_ps_");
                 if (pos == std::string::npos && fun->getSection().compare(".text.startup") != 0) {
                     return false;
