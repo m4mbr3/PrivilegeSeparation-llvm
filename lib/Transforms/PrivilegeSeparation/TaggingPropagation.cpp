@@ -28,6 +28,12 @@ class TaggingPropagation : public ModulePass {
                 CallGraphNode *CGN = BCG->second;
                 Function *fun = CGN->getFunction();
                 if (!fun || fun->isDeclaration()) continue;
+                AttributeSet cuAttrSet = fun->getAttributes();
+                if (cuAttrSet.hasAttribute(AttributeSet::FunctionIndex, "privilege-separation")) {
+                    Attribute att = cuAttrSet.getAttribute(AttributeSet::FunctionIndex, "privilege-separation");
+                    std::string value_str = att.getValueAsString().str();
+                    fun->setSection(".fun_ps_" + value_str);
+                }
                 if (fun->getName().str().compare("_Z12exit_wrapperv") == 0) {
                     std::stringstream ss;
                     ss << NUM_OF_LEVELS - 1;
@@ -42,12 +48,6 @@ class TaggingPropagation : public ModulePass {
                     std::string sec = ".fun_ps_" + ss.str();
                     StringRef sec_ref = StringRef(sec);
                     root->getFunction()->setSection(sec_ref);
-                }
-                AttributeSet cuAttrSet = fun->getAttributes();
-                if (cuAttrSet.hasAttribute(AttributeSet::FunctionIndex, "privilege-separation")) {
-                    Attribute att = cuAttrSet.getAttribute(AttributeSet::FunctionIndex, "privilege-separation");
-                    std::string value_str = att.getValueAsString().str();
-                    fun->setSection(".fun_ps_" + value_str);
                 }
                 for(Function::iterator BB = fun->begin(), E = fun->end(); BB!= E; ++BB) {
                     for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
