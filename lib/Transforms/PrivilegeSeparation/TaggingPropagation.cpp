@@ -199,6 +199,7 @@ class TaggingPropagation : public ModulePass {
                 CallGraphNode *CGN = BCG->second;
                 Function *fun = CGN->getFunction();
                 if (!fun || fun->isDeclaration()) continue;
+                if (fun->use_empty()) continue;
                 if (fun->getName().str().compare("_Z12exit_wrapperv") == 0) continue;
                 std::size_t pos = fun->getSection().find(".fun_ps_");
                 if (pos == std::string::npos && fun->getSection().compare(".text.startup") != 0) {
