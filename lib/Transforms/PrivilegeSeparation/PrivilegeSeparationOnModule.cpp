@@ -266,7 +266,8 @@ std::string text_section =      "  . = ALIGN (CONSTANT (MAXPAGESIZE)) - ((CONSTA
                                 "    /* .gnu.warning sections are handled specially by elf32.em.  */\n"
                                 "    *(.gnu.warning)\n"
                                 "  } : text\n";
-std::string before_data =       "  .fini           :\n"
+std::string before_data =       "  . = . + 0x1000; \n"
+                                "  .fini           :\n"
                                 "  {\n"
                                 "    KEEP (*(SORT_NONE(.fini)))\n"
                                 "  } : text\n"
