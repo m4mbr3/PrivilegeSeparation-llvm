@@ -2,6 +2,7 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Transforms/PrivilegeSeparation.h"
@@ -200,6 +201,7 @@ class TaggingPropagation : public ModulePass {
                 Function *fun = CGN->getFunction();
                 if (!fun || fun->isDeclaration()) continue;
                 if (fun->use_empty()) continue;
+                if (fun->getLinkage() == 7) continue;
                 if (fun->getName().str().compare("_Z12exit_wrapperv") == 0) continue;
                 std::size_t pos = fun->getSection().find(".fun_ps_");
                 if (pos == std::string::npos && fun->getSection().compare(".text.startup") != 0) {
