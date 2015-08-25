@@ -72,16 +72,19 @@ class SysCallInsertion : public ModulePass{
                 Function* func_exit = M.getFunction("_Z12exit_wrapperv");
                 bool isNotExist = false;
                 if (!func_exit) {
-                    func_exit = M.getFunction("exit");
-                    if (!func_exit) {
-                        func_exit = Function::Create(
-                                exit_ty,
-                                GlobalValue::ExternalLinkage,
-                                "exit",
-                                &M);
-                        func_exit->setCallingConv(CallingConv::C);
-                    }
-                    isNotExist = true;
+                   func_exit = M.getFunction("exit_wrapper");
+                   if (!func_exit) {
+                        func_exit = M.getFunction("exit");
+                        if (!func_exit) {
+                            func_exit = Function::Create(
+                                    exit_ty,
+                                    GlobalValue::ExternalLinkage,
+                                    "exit",
+                                    &M);
+                            func_exit->setCallingConv(CallingConv::C);
+                        }
+                        isNotExist = true;
+                   }
                 }
                 AttributeSet func_exit_PAL;
                 {
